@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>時間守護者：擊退時間魔王！</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700;800&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: radial-gradient(circle at center, #1b1035 0%, #08031a 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            user-select: none;
+            overflow-x: hidden;
+        }
+        .font-tech { font-family: 'Chakra Petch', sans-serif; }
+        
+        .magic-card {
+            background: rgba(28, 23, 62, 0.85);
+            backdrop-filter: blur(16px);
+            border: 2px solid rgba(147, 51, 234, 0.4);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+        }
+        .magic-card:hover {
+            border-color: rgba(192, 132, 252, 0.8);
+        }
+
+        .btn-magic {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-magic:active {
+            transform: scale(0.95);
+        }
+
+        /* Time Demon Animations */
+        @keyframes floatMonster {
+            0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
+            50% { transform: translateY(-18px) rotate(3deg) scale(1.05); }
+        }
+        .animate-boss { animation: floatMonster 3s ease-in-out infinite; }
+
+        @keyframes crazySpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(1080deg); }
+        }
+        .animate-crazy-spin { animation: crazySpin 2.5s cubic-bezier(0.68, -0.55, 0.27, 1.55); }
+
+        /* Modified: Victory pulse animation that keeps element visible instead of banishing it */
+        @keyframes victoryGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(52, 211, 153, 0.6)); }
+            50% { transform: scale(1.03); filter: drop-shadow(0 0 30px rgba(52, 211, 153, 0.9)); }
+        }
+        .animate-victory-glow { animation: victoryGlow 2.5s ease-in-out infinite; }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 35px rgba(245, 158, 11, 0.9); }
+        }
+        .pulse-gold { animation: pulseGlow 2s infinite; }
+
+        @keyframes pulseGreen {
+            0%, 100% { box-shadow: 0 0 15px rgba(52, 211, 153, 0.4); }
+            50% { box-shadow: 0 0 35px rgba(52, 211, 153, 0.9); }
+        }
+        .pulse-emerald { animation: pulseGreen 1.5s infinite; }
+
+        .clock-shadow {
+            filter: drop-shadow(0px 12px 24px rgba(0,0,0,0.6));
+        }
+
+        /* Touch SVG Clock Styling */
+        .clock-touch-surface {
+            touch-action: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-indigo-950/90 border-b border-purple-500/30 px-4 py-3 sticky top-0 z-50 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="showStoryIntro()">
+                <div class="w-10 h-10 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center pulse-gold">
+                    <i class="fa-solid fa-hourglass-half text-amber-400 text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-purple-300 to-cyan-300">
+                        時間守護者：擊退時間魔王！
+                    </h1>
+                    <p class="text-xs text-indigo-300 hidden sm:block">香港小二數學 (2M2 時間二) 精細報時解密大作戰</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="modeToggleBtn" onclick="handleTeacherModeToggle()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-400/40 text-indigo-200 flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-chalkboard-user text-amber-400"></i>
+                    <span id="modeBtnText">教師實時大螢幕</span>
+                </button>
+                <button onclick="resetAllData()" title="重置全班進度" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-300 transition">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main View Container -->
+    <main id="appContainer" class="flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full flex flex-col justify-center items-center">
+        <!-- Content injected dynamically via JS -->
+    </main>
+
+    <!-- Modal Box for Teacher Password Check -->
+    <div id="teacherAuthModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="magic-card max-w-md w-full p-6 rounded-3xl text-center border-2 border-purple-400 shadow-2xl">
+            <div class="w-14 h-14 rounded-full bg-purple-500/20 border-2 border-purple-400 flex items-center justify-center text-2xl text-purple-300 mx-auto mb-3">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <h3 class="text-2xl font-black text-amber-300 mb-2">教師身份驗證</h3>
+            <p class="text-indigo-200 text-xs mb-4">請輸入教師權限密碼以進入實時控制大螢幕：</p>
+            
+            <form onsubmit="verifyTeacherPassword(event)" class="flex flex-col items-center">
+                <input type="password" id="teacherPassInput" placeholder="請輸入密碼" autocomplete="off"
+                       class="w-full text-center font-tech font-bold text-xl px-4 py-3 bg-indigo-950/90 border-2 border-purple-500/50 rounded-xl text-amber-300 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/50 mb-4 shadow-inner">
+                <p id="teacherAuthError" class="text-xs text-rose-400 font-bold mb-3 hidden flex items-center gap-1">
+                    <i class="fa-solid fa-circle-xmark"></i> 密碼不正確，請重新輸入！
+                </p>
+                <div class="flex gap-2 w-full">
+                    <button type="button" onclick="closeTeacherAuthModal()" class="w-1/2 py-2.5 rounded-xl font-bold text-xs bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 border border-indigo-500/40">
+                        取消
+                    </button>
+                    <button type="submit" class="btn-magic w-1/2 py-2.5 rounded-xl font-bold text-xs text-white">
+                        確認登入
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Box for Alerts -->
+    <div id="customModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="magic-card max-w-md w-full p-6 rounded-3xl text-center border-2 border-amber-400 shadow-2xl">
+            <div id="modalIcon" class="text-5xl mb-3 text-amber-400">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="modalTitle" class="text-2xl font-black text-amber-300 mb-2">提示</h3>
+            <p id="modalMsg" class="text-indigo-100 text-sm mb-6 leading-relaxed">訊息內容...</p>
+            <button onclick="closeModal()" class="btn-magic px-6 py-2.5 rounded-xl font-extrabold text-white text-sm w-full">
+                知道了！
+            </button>
+        </div>
+    </div>
+
+    <!-- Web Audio API Sound Generator -->
+    <script>
+        const AudioFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playCorrect() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+                osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            },
+            playWrong() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.setValueAtTime(140, now + 0.15);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            },
+            playVictory() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50, 880, 1046.50, 1318.51];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                    gain.gain.setValueAtTime(0.3, now + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.12);
+                    osc.stop(now + idx * 0.12 + 0.35);
+                });
+            },
+            playTick() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            },
+            playReadyFanfare() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [440, 554.37, 659.25, 880];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    gain.gain.setValueAtTime(0.25, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.3);
+                });
+            }
+        };
+
+        function showModal(title, msg, iconClass = "fa-solid fa-circle-info", iconColor = "text-amber-400") {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMsg').innerText = msg;
+            document.getElementById('modalIcon').className = `text-5xl mb-3 ${iconColor}`;
+            document.getElementById('modalIcon').innerHTML = `<i class="${iconClass}"></i>`;
+            document.getElementById('customModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('customModal').classList.add('hidden');
+            AudioFX.init(); // 確保使用者互動解鎖音效
+        }
+    </script>
+
+    <!-- Core App Logic -->
+    <script>
+        const STORAGE_KEY = 'TIME_GUARDIAN_P2_STATE';
+        const CHANNEL_NAME = 'time_guardian_sync_channel';
+        const broadcastChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
+
+        // Group Passwords Map (5 groups x 5 member digits)
+        const GROUP_PASSWORDS = {
+            1: [7, 3, 9, 1, 4],
+            2: [2, 8, 5, 0, 6],
+            3: [9, 4, 1, 7, 2],
+            4: [1, 6, 8, 3, 5],
+            5: [5, 2, 0, 9, 8]
+        };
+
+        let gameState = loadGameState();
+        let currentGroup = null;    // 1..5
+        let currentMember = null;   // 1..5
+        let currentView = 'intro';  // 'intro', 'select_squad', 'select_member', 'waiting_hall', 'quiz', 'group_vault', 'victory_cutscene', 'teacher'
+        let currentQuestionIndex = 0;
+        let studentQuestions = [];
+        let interactiveClockVal = { h: 8, m: 0 };
+
+        function defaultState() {
+            const groups = {};
+            for (let g = 1; g <= 5; g++) {
+                groups[g] = {
+                    members: {
+                        1: { loggedIn: false, done: false, digit: GROUP_PASSWORDS[g][0] },
+                        2: { loggedIn: false, done: false, digit: GROUP_PASSWORDS[g][1] },
+                        3: { loggedIn: false, done: false, digit: GROUP_PASSWORDS[g][2] },
+                        4: { loggedIn: false, done: false, digit: GROUP_PASSWORDS[g][3] },
+                        5: { loggedIn: false, done: false, digit: GROUP_PASSWORDS[g][4] }
+                    },
+                    unlocked: false
+                };
+            }
+            return { 
+                gameStarted: false, 
+                groups 
+            };
+        }
+
+        function loadGameState() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return defaultState();
+            try { 
+                const data = JSON.parse(raw);
+                if (data.gameStarted === undefined) data.gameStarted = false;
+                return data;
+            } catch (e) { 
+                return defaultState(); 
+            }
+        }
+
+        if (broadcastChannel) {
+            broadcastChannel.onmessage = (event) => {
+                if (event.data && event.data.type === 'UPDATE_STATE') {
+                    gameState = event.data.state;
+                    // If student is in waiting hall and teacher starts game, auto move to quiz
+                    if (currentView === 'waiting_hall' && gameState.gameStarted) {
+                        currentQuestionIndex = 0;
+                        studentQuestions = generatePrecisionQuestions();
+                        currentView = 'quiz';
+                    }
+                    renderCurrentView();
+                }
+            };
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === STORAGE_KEY) {
+                gameState = loadGameState();
+                if (currentView === 'waiting_hall' && gameState.gameStarted) {
+                    currentQuestionIndex = 0;
+                    studentQuestions = generatePrecisionQuestions();
+                    currentView = 'quiz';
+                }
+                renderCurrentView();
+            }
+        });
+
+        function resetAllData() {
+            if (confirm("確定要重置全班所有小隊的進度嗎？（課堂重頭開始使用）")) {
+                gameState = defaultState();
+                saveAndSyncState();
+                showStoryIntro();
+            }
+        }
+
+        function showStoryIntro() {
+            currentGroup = null;
+            currentMember = null;
+            currentView = 'intro';
+            renderCurrentView();
+        }
+
+        // -------------------------------------------------------------
+        // TEACHER AUTHENTICATION CONTROLLER
+        // -------------------------------------------------------------
+        const TEACHER_PASSWORD = "991130";
+
+        function handleTeacherModeToggle() {
+            if (currentView === 'teacher') {
+                // 退回學生介面
+                currentView = 'select_squad';
+                document.getElementById('modeBtnText').innerText = "教師實時大螢幕";
+                renderCurrentView();
+            } else {
+                // 打開密碼驗證彈窗
+                document.getElementById('teacherPassInput').value = '';
+                document.getElementById('teacherAuthError').classList.add('hidden');
+                document.getElementById('teacherAuthModal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('teacherPassInput').focus(), 100);
+            }
+        }
+
+        function closeTeacherAuthModal() {
+            document.getElementById('teacherAuthModal').classList.add('hidden');
+        }
+
+        function verifyTeacherPassword(event) {
+            if (event) event.preventDefault();
+            const inputVal = document.getElementById('teacherPassInput').value;
+            if (inputVal === TEACHER_PASSWORD) {
+                closeTeacherAuthModal();
+                currentView = 'teacher';
+                document.getElementById('modeBtnText').innerText = "返回學生界面";
+                renderCurrentView();
+            } else {
+                AudioFX.playWrong();
+                document.getElementById('teacherAuthError').classList.remove('hidden');
+                document.getElementById('teacherPassInput').value = '';
+                document.getElementById('teacherPassInput').focus();
+            }
+        }
+
+        function toggleTeacherDashboard() {
+            handleTeacherModeToggle();
+        }
+
+        // Helper check: Is squad fully ready?
+        function isGroupFullyReady(g) {
+            const members = gameState.groups[g].members;
+            return Object.values(members).every(m => m.done);
+        }
+
+        // -------------------------------------------------------------
+        // RENDER CONTROLLER
+        // -------------------------------------------------------------
+        function renderCurrentView() {
+            const container = document.getElementById('appContainer');
+            container.innerHTML = '';
+
+            if (currentView === 'intro') {
+                renderIntroCutscene(container);
+            } else if (currentView === 'select_squad') {
+                renderSquadSelectView(container);
+            } else if (currentView === 'select_member') {
+                renderMemberSelectView(container);
+            } else if (currentView === 'waiting_hall') {
+                renderWaitingHallView(container);
+            } else if (currentView === 'quiz') {
+                renderQuizView(container);
+            } else if (currentView === 'group_vault') {
+                renderGroupVaultView(container);
+            } else if (currentView === 'victory_cutscene') {
+                renderVictoryCutsceneView(container);
+            } else if (currentView === 'teacher') {
+                renderTeacherView(container);
+            }
+        }
+
+        // -------------------------------------------------------------
+        // VIEW 1: Intro Story Cutscene
+        // -------------------------------------------------------------
+        function renderIntroCutscene(container) {
+            container.innerHTML = `
+                <div class="w-full max-w-3xl magic-card p-6 sm:p-10 rounded-3xl text-center flex flex-col items-center relative overflow-hidden border-2 border-amber-400/50">
+                    <div class="absolute -top-12 -left-12 w-48 h-48 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-rose-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="relative z-10 flex flex-col items-center">
+                        <div class="relative w-40 h-40 mb-6 flex items-center justify-center">
+                            <div class="absolute inset-0 text-amber-400 opacity-30 animate-crazy-spin">
+                                ${renderSVGClock(10, 27, 160)}
+                            </div>
+                            <div class="animate-boss text-7xl text-amber-400 filter drop-shadow-[0_0_20px_rgba(245,158,11,0.8)] relative z-10">
+                                <i class="fa-solid fa-ghost"></i>
+                            </div>
+                        </div>
+
+                        <span class="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-3 animate-pulse">
+                            ⚠️ 時空緊急危機發動
+                        </span>
+
+                        <h2 class="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-rose-300 to-purple-200 mb-4">
+                            「時間魔王」搗蛋，搗亂了鐘面！
+                        </h2>
+
+                        <p class="text-indigo-100 text-sm sm:text-base leading-relaxed mb-8 max-w-xl">
+                            邪惡的時間魔王把時鐘的細小刻度統統搞亂，連分鐘指針都亂轉！<br>
+                            全班 <strong class="text-amber-300">25 位同學</strong> 需要化身為 <strong class="text-cyan-300">「時間守護者」</strong>，分成 5 大小隊。正確破解精細的「小時與分鐘」試煉，收集 5 個數字密碼，<strong class="text-emerald-300">全員到齊後合力輸入解密密碼</strong>，打敗時間魔王！
+                        </p>
+
+                        <button onclick="startMission()" class="btn-magic text-lg sm:text-xl font-black text-white px-10 py-4 rounded-2xl shadow-xl border border-amber-300/50 pulse-gold flex items-center gap-3">
+                            <i class="fa-solid fa-shield-halved text-amber-300"></i> 化身時間守護者，開始出擊！
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startMission() {
+            AudioFX.playTick();
+            currentView = 'select_squad';
+            renderCurrentView();
+        }
+
+        // -------------------------------------------------------------
+        // VIEW 2: Squad Selection
+        // -------------------------------------------------------------
+        function renderSquadSelectView(container) {
+            let html = `
+                <div class="w-full max-w-4xl flex flex-col items-center">
+                    <div class="text-center mb-8">
+                        <span class="text-xs font-bold bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full border border-purple-400/30 uppercase tracking-widest">第一步</span>
+                        <h2 class="text-2xl sm:text-3xl font-black text-amber-300 mt-2">請選擇你的守護者小隊</h2>
+                        <p class="text-indigo-200 text-xs sm:text-sm mt-1">點擊你所屬的小隊（第 1 組 至 第 5 組）</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-4 w-full">
+            `;
+
+            for (let g = 1; g <= 5; g++) {
+                const groupData = gameState.groups[g];
+                const doneCount = Object.values(groupData.members).filter(m => m.done).length;
+                const isUnlocked = groupData.unlocked;
+                const isReady = doneCount === 5;
+
+                html += `
+                    <div onclick="chooseSquad(${g})" class="magic-card p-6 rounded-3xl flex flex-col items-center justify-between cursor-pointer border-2 transition hover:scale-105 ${
+                        isUnlocked ? 'border-emerald-500/80 bg-emerald-950/20' : isReady ? 'border-amber-400 bg-amber-950/20 pulse-gold' : 'border-purple-500/40 hover:border-amber-400'
+                    }">
+                        <div class="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-300 text-2xl font-black font-tech mb-4 shadow-inner">
+                            G${g}
+                        </div>
+                        <h3 class="font-extrabold text-lg text-white mb-2">第 ${g} 組</h3>
+                        
+                        ${isUnlocked 
+                            ? `<span class="bg-emerald-500/20 text-emerald-300 text-xs px-2.5 py-1 rounded-lg font-bold border border-emerald-500/40"><i class="fa-solid fa-lock-open mr-1"></i>已成功封印</span>` 
+                            : isReady 
+                                ? `<span class="bg-amber-500/20 text-amber-300 text-xs px-2.5 py-1 rounded-lg font-bold border border-amber-400/50 animate-pulse"><i class="fa-solid fa-users-check mr-1"></i>全員到齊！</span>`
+                                : `<span class="text-xs font-tech text-indigo-300 bg-indigo-900/60 px-2.5 py-1 rounded-lg border border-indigo-700">${doneCount} / 5 人完成</span>`}
+                    </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function chooseSquad(g) {
+            AudioFX.playTick();
+            currentGroup = g;
+            currentView = 'select_member';
+            renderCurrentView();
+        }
+
+        // -------------------------------------------------------------
+        // VIEW 3: Student Number Selection
+        // -------------------------------------------------------------
+        function renderMemberSelectView(container) {
+            const groupData = gameState.groups[currentGroup];
+
+            let html = `
+                <div class="w-full max-w-3xl flex flex-col items-center">
+                    <div class="w-full flex justify-between items-center mb-6">
+                        <button onclick="currentView='select_squad'; renderCurrentView();" class="px-4 py-2 rounded-xl bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 text-xs font-bold border border-indigo-400/30 flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-left"></i> 重選小隊
+                        </button>
+                        <span class="text-amber-300 font-extrabold text-base sm:text-lg">已選擇：第 ${currentGroup} 小隊</span>
+                    </div>
+
+                    <div class="magic-card w-full p-6 sm:p-8 rounded-3xl flex flex-col items-center border-purple-500/40">
+                        <span class="text-xs font-bold bg-amber-400/20 text-amber-300 px-3 py-1 rounded-full border border-amber-400/30 uppercase tracking-widest mb-2">第二步</span>
+                        <h2 class="text-2xl font-black text-white mb-2">請點擊你的隊員號碼登入</h2>
+                        <p class="text-xs text-indigo-300 mb-6">登入後將進入全班等候大堂，等待老師啟動遊戲！</p>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 w-full mb-6">
+            `;
+
+            for (let m = 1; m <= 5; m++) {
+                const member = groupData.members[m];
+                const isLogged = member.loggedIn;
+
+                html += `
+                    <button onclick="chooseMember(${m})" class="p-4 rounded-2xl flex flex-col items-center justify-center border-2 transition ${
+                        isLogged 
+                            ? 'bg-amber-950/40 border-amber-500/60 text-amber-300' 
+                            : 'bg-indigo-900/60 border-indigo-500/40 hover:border-amber-400 text-white hover:bg-purple-800/60'
+                    }">
+                        <span class="font-tech font-black text-2xl mb-1">${m} 號</span>
+                        <span class="text-xs ${isLogged ? 'text-amber-400 font-bold' : 'text-indigo-300'}">
+                            ${isLogged ? '<i class="fa-solid fa-user-check"></i> 已登入' : '點擊登入'}
+                        </span>
+                    </button>
+                `;
+            }
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function chooseMember(m) {
+            AudioFX.playTick();
+            currentMember = m;
+            
+            // Mark student as logged in
+            gameState.groups[currentGroup].members[m].loggedIn = true;
+            saveAndSyncState();
+
+            const mData = gameState.groups[currentGroup].members[m];
+
+            if (mData.done) {
+                currentView = 'group_vault';
+            } else if (gameState.gameStarted) {
+                studentQuestions = generatePrecisionQuestions();
+                currentQuestionIndex = 0;
+                currentView = 'quiz';
+            } else {
+                currentView = 'waiting_hall';
+            }
+            renderCurrentView();
+        }
+
+        // -------------------------------------------------------------
+        // NEW VIEW: Waiting Hall (等待25位同學登入 & 老師按開始)
+        // -------------------------------------------------------------
+        function renderWaitingHallView(container) {
+            let totalLoggedIn = 0;
+            for (let g = 1; g <= 5; g++) {
+                for (let m = 1; m <= 5; m++) {
+                    if (gameState.groups[g].members[m].loggedIn) totalLoggedIn++;
+                }
+            }
+
+            container.innerHTML = `
+                <div class="w-full max-w-3xl magic-card p-6 sm:p-10 rounded-3xl text-center flex flex-col items-center relative overflow-hidden border-2 border-amber-400/50">
+                    <div class="flex items-center gap-2 mb-4 bg-amber-500/20 text-amber-300 px-4 py-1.5 rounded-full border border-amber-400/40 text-xs font-bold animate-pulse">
+                        <i class="fa-solid fa-users"></i> 全班集結大堂
+                    </div>
+
+                    <h2 class="text-2xl sm:text-3xl font-black text-white mb-2">
+                        歡迎第 ${currentGroup} 組 ${currentMember} 號守護者！
+                    </h2>
+                    <p class="text-indigo-200 text-sm mb-6">
+                        請在等候室稍後，當全班 25 位同學登入完成，老師按下「開始遊戲」後試煉將正式發動！
+                    </p>
+
+                    <!-- Realtime Login Counter -->
+                    <div class="w-full max-w-md bg-indigo-950/80 p-5 rounded-2xl border border-indigo-500/40 mb-6 shadow-inner">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-indigo-300 font-bold">全班登入進度：</span>
+                            <span class="font-tech font-black text-xl text-amber-300">${totalLoggedIn} / 25 人</span>
+                        </div>
+                        <div class="w-full h-4 bg-indigo-900 rounded-full overflow-hidden border border-indigo-700">
+                            <div class="h-full bg-gradient-to-r from-amber-400 via-purple-400 to-cyan-400 transition-all duration-500" style="width: ${(totalLoggedIn/25)*100}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Mini status grid -->
+                    <div class="grid grid-cols-5 gap-2 w-full max-w-md mb-6">
+                        ${[1,2,3,4,5].map(g => `
+                            <div class="bg-indigo-950/60 p-2 rounded-xl border border-indigo-800 text-center">
+                                <span class="text-[10px] text-amber-300 font-bold block mb-1">第 ${g} 組</span>
+                                <div class="flex justify-center gap-0.5">
+                                    ${[1,2,3,4,5].map(m => `
+                                        <div class="w-2 h-2 rounded-full ${gameState.groups[g].members[m].loggedIn ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]' : 'bg-slate-700'}"></div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="flex items-center gap-3 text-indigo-300 text-xs font-bold animate-bounce">
+                        <i class="fa-solid fa-hourglass-start text-amber-400 text-base"></i> 正在等待老師啟動試煉...
+                    </div>
+                </div>
+            `;
+        }
+
+        // -------------------------------------------------------------
+        // VIEW 5: Group Vault & Passcode Unlocking
+        // -------------------------------------------------------------
+        function renderGroupVaultView(container) {
+            const g = currentGroup || 1;
+            const groupData = gameState.groups[g];
+            const isUnlocked = groupData.unlocked;
+            const doneCount = Object.values(groupData.members).filter(m => m.done).length;
+            const isReady = doneCount === 5;
+
+            let html = `
+                <div class="w-full max-w-3xl flex flex-col items-center">
+                    <div class="w-full flex justify-between items-center mb-6">
+                        <button onclick="currentView='select_squad'; renderCurrentView();" class="px-4 py-2 rounded-xl bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 text-xs font-bold border border-indigo-400/30 flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-left"></i> 返主選單
+                        </button>
+                        <span class="text-amber-300 font-extrabold text-lg">第 ${g} 小隊魔法金庫門</span>
+                    </div>
+
+                    <div class="magic-card w-full p-6 sm:p-8 rounded-3xl flex flex-col items-center border-amber-400/30 relative">
+            `;
+
+            if (isUnlocked) {
+                html += `
+                    <div class="flex flex-col items-center text-center my-4">
+                        <div class="w-24 h-24 rounded-full bg-emerald-400/20 border-4 border-emerald-400 flex items-center justify-center text-5xl text-emerald-300 mb-4 shadow-[0_0_30px_rgba(52,211,153,0.6)]">
+                            <i class="fa-solid fa-shield-check"></i>
+                        </div>
+                        <h2 class="text-3xl font-black text-emerald-300 mb-2">已封印時間魔王！</h2>
+                        <p class="text-indigo-200 text-sm max-w-md mb-6">
+                            第 ${g} 組成功解開密碼，拯救了這片時空！
+                        </p>
+                        <button onclick="replayVictoryCutscene()" class="btn-magic py-3 px-6 rounded-xl font-bold text-sm text-white shadow-lg">
+                            <i class="fa-solid fa-film mr-2"></i> 重溫擊退魔王動畫
+                        </button>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <h3 class="text-xl font-extrabold text-amber-300 mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-key"></i> 第 ${g} 小隊隊員集結線索區
+                    </h3>
+                    
+                    <!-- Progress Bar for Waiting Mechanism -->
+                    <div class="w-full max-w-md my-4 bg-indigo-950/80 p-4 rounded-2xl border border-indigo-500/40">
+                        <div class="flex justify-between items-center mb-2 text-xs font-bold">
+                            <span class="text-indigo-200">隊員完成狀態：</span>
+                            <span class="${isReady ? 'text-emerald-300 font-black' : 'text-amber-300'} font-tech text-sm">${doneCount} / 5 人完成</span>
+                        </div>
+                        <div class="w-full h-3 bg-indigo-900 rounded-full overflow-hidden border border-indigo-700">
+                            <div class="h-full ${isReady ? 'bg-gradient-to-r from-emerald-400 to-teal-300 pulse-emerald' : 'bg-gradient-to-r from-amber-400 to-purple-500'} transition-all duration-500" style="width: ${(doneCount/5)*100}%"></div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-indigo-300 mb-6 text-center max-w-md">
+                        ${isReady 
+                            ? '🎉 <strong class="text-emerald-300">全員已到齊！</strong> 請 5 位隊員把各自獲得的數字依 1號 ➜ 5號 順序告訴組長解密！' 
+                            : '⚠️ 需要 <strong class="text-amber-300">5 位隊員全部完成個人試煉</strong> 後，魔法解密盤才會開啟！'}
+                    </p>
+
+                    <div class="grid grid-cols-5 gap-2 sm:gap-4 w-full mb-8">
+                `;
+
+                for (let m = 1; m <= 5; m++) {
+                    const member = groupData.members[m];
+                    const isCurrentViewer = (currentMember === m);
+
+                    html += `
+                        <div class="flex flex-col items-center p-3 rounded-2xl border transition ${
+                            member.done 
+                                ? isReady ? 'bg-emerald-500/10 border-emerald-400/80' : 'bg-amber-500/10 border-amber-400/60' 
+                                : 'bg-indigo-950/60 border-indigo-800 opacity-60'
+                        }">
+                            <span class="text-xs text-indigo-300 font-bold mb-1">${m} 號隊員</span>
+                            <div class="w-12 h-12 rounded-xl flex items-center justify-center font-tech font-black text-2xl ${
+                                member.done 
+                                    ? isReady || isCurrentViewer 
+                                        ? 'bg-amber-400 text-indigo-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]' 
+                                        : 'bg-indigo-800 text-amber-300 border border-amber-400/50' 
+                                    : 'bg-indigo-900/50 text-indigo-600'
+                            }">
+                                ${member.done 
+                                    ? (isReady || isCurrentViewer ? member.digit : '✓') 
+                                    : '?'}
+                            </div>
+                            <span class="text-[10px] mt-1 ${member.done ? 'text-emerald-400 font-bold' : 'text-indigo-400'}">
+                                ${member.done ? '已獲線索' : '未完成'}
+                            </span>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    </div>
+                `;
+
+                // Lock interface if not all 5 members are ready
+                if (!isReady) {
+                    html += `
+                        <div class="w-full max-w-md bg-indigo-950/90 p-6 rounded-2xl border-2 border-dashed border-amber-500/40 flex flex-col items-center text-center">
+                            <div class="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-400/30 flex items-center justify-center text-amber-400 text-2xl mb-3 animate-bounce">
+                                <i class="fa-solid fa-users-slash"></i>
+                            </div>
+                            <h4 class="text-lg font-black text-amber-300 mb-1">等待全隊成員到齊中...</h4>
+                            <p class="text-xs text-indigo-200 leading-relaxed">
+                                還差 <strong class="text-rose-400 font-tech text-sm">${5 - doneCount}</strong> 位隊員！請互相鼓勵協助尚未完成試煉的隊員！
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="w-full max-w-md bg-gradient-to-b from-indigo-950 to-purple-950 p-6 rounded-2xl border-2 border-emerald-400/60 flex flex-col items-center shadow-2xl pulse-emerald">
+                            <span class="bg-emerald-500/20 text-emerald-300 text-xs font-black px-3 py-1 rounded-full border border-emerald-500/40 mb-3 uppercase tracking-wider">
+                                🔥 全員到齊！解密卡槽已鎖定
+                            </span>
+                            <label class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-lock-open text-emerald-400"></i> 組長請輸入 5 位數字組合：
+                            </label>
+                            
+                            <div class="flex gap-2 sm:gap-3 mb-6">
+                                ${[1, 2, 3, 4, 5].map(idx => `
+                                    <input type="text" id="passInput_${idx}" maxlength="1" pattern="[0-9]*" inputmode="numeric" 
+                                        oninput="moveToNextInput(${idx})"
+                                        class="w-10 h-12 sm:w-12 sm:h-14 text-center font-tech font-bold text-2xl bg-indigo-900/90 border-2 border-emerald-400/60 rounded-xl text-amber-300 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/50 shadow-inner">
+                                `).join('')}
+                            </div>
+
+                            <button onclick="unlockVault(${g})" class="btn-magic w-full py-3.5 rounded-xl font-extrabold text-white text-base bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500 hover:opacity-95 border border-emerald-300/40 shadow-xl flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-key"></i> 提交密碼，發動時間封印！
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+        // -------------------------------------------------------------
+        // VIEW 7: Teacher Real-time Live Dashboard
+        // -------------------------------------------------------------
+        function renderTeacherView(container) {
+            let totalLoggedInMembers = 0;
+            let totalDoneMembers = 0;
+            let totalUnlockedGroups = 0;
+
+            for (let g = 1; g <= 5; g++) {
+                const members = gameState.groups[g].members;
+                for (let m = 1; m <= 5; m++) {
+                    if (members[m].loggedIn) totalLoggedInMembers++;
+                    if (members[m].done) totalDoneMembers++;
+                }
+                if (gameState.groups[g].unlocked) totalUnlockedGroups++;
+            }
+
+            let html = `
+                <div class="w-full max-w-6xl flex flex-col items-center">
+                    <div class="magic-card p-6 rounded-3xl w-full mb-6 border-amber-400/40 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <span class="bg-indigo-800 text-indigo-200 text-xs font-bold px-3 py-1 rounded-full">即時數據控制台</span>
+                            <h2 class="text-2xl font-black text-amber-300 mt-1">全班小組時間解密即時大螢幕</h2>
+                        </div>
+                        
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div class="text-center px-3 border-r border-indigo-700">
+                                <span class="text-xs text-indigo-300 block font-bold">全班登入人數</span>
+                                <span class="text-2xl font-black font-tech text-amber-300">${totalLoggedInMembers} / 25 人</span>
+                            </div>
+                            <div class="text-center px-3 border-r border-indigo-700">
+                                <span class="text-xs text-indigo-300 block font-bold">試煉完成</span>
+                                <span class="text-2xl font-black font-tech text-emerald-400">${totalDoneMembers} / 25 人</span>
+                            </div>
+                            <div class="text-center px-3">
+                                <span class="text-xs text-indigo-300 block font-bold">小隊封印</span>
+                                <span class="text-2xl font-black font-tech text-cyan-300">${totalUnlockedGroups} / 5 組</span>
+                            </div>
+
+                            ${!gameState.gameStarted ? `
+                                <button onclick="teacherStartGame()" class="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-sm border border-emerald-300/50 shadow-lg pulse-emerald transition flex items-center gap-2">
+                                    <i class="fa-solid fa-play"></i> 啟動全班遊戲／開始試煉！
+                                </button>
+                            ` : `
+                                <span class="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold text-xs flex items-center gap-1.5">
+                                    <i class="fa-solid fa-bolt text-amber-400"></i> 遊戲進行中
+                                </span>
+                            `}
+
+                            <button onclick="simulateDemoProgress()" class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white border border-purple-300/40 transition shadow-md">
+                                ⚡ 快速模擬登入/進度
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 w-full">
+            `;
+
+            for (let g = 1; g <= 5; g++) {
+                const groupData = gameState.groups[g];
+                const doneCount = Object.values(groupData.members).filter(m => m.done).length;
+                const isUnlocked = groupData.unlocked;
+                const isReady = doneCount === 5;
+
+                html += `
+                    <div class="magic-card p-5 rounded-2xl flex flex-col justify-between border ${isUnlocked ? 'border-emerald-500 bg-emerald-950/30' : isReady ? 'border-amber-400 bg-amber-950/20' : 'border-indigo-500/30'}">
+                        <div>
+                            <div class="flex justify-between items-center mb-3 pb-2 border-b border-indigo-500/30">
+                                <h3 class="font-black text-amber-300 text-lg">第 ${g} 組</h3>
+                                ${isUnlocked 
+                                    ? `<span class="bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 rounded border border-emerald-500/40 font-bold"><i class="fa-solid fa-shield-check mr-1"></i>已封印</span>` 
+                                    : isReady 
+                                        ? `<span class="bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded border border-amber-400/50 font-bold animate-pulse">全員到齊</span>`
+                                        : `<span class="text-xs text-indigo-300 font-tech font-bold">${doneCount}/5 完成</span>`}
+                            </div>
+
+                            <div class="space-y-2 mb-4">
+                `;
+
+                for (let m = 1; m <= 5; m++) {
+                    const member = groupData.members[m];
+                    html += `
+                        <div class="flex justify-between items-center text-xs p-2 rounded-lg ${
+                            member.done 
+                                ? 'bg-emerald-950/50 text-emerald-300 border border-emerald-500/30' 
+                                : member.loggedIn 
+                                    ? 'bg-amber-950/40 text-amber-200 border border-amber-500/30'
+                                    : 'bg-indigo-950/60 text-indigo-400'
+                        }">
+                            <span>${m} 號隊員</span>
+                            <span class="font-tech font-bold">${
+                                member.done 
+                                    ? '<i class="fa-solid fa-check text-emerald-400"></i> 已獲得' 
+                                    : member.loggedIn 
+                                        ? '<i class="fa-solid fa-spinner animate-spin text-amber-400"></i> 解密中' 
+                                        : '未登入'
+                            }</span>
+                        </div>
+                    `;
+                }
+
+                html += `
+                            </div>
+                        </div>
+                        <div class="text-xs text-center text-indigo-300 font-tech font-bold pt-2 border-t border-indigo-500/20">
+                            解密密碼: ${GROUP_PASSWORDS[g].join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function teacherStartGame() {
+            gameState.gameStarted = true;
+            saveAndSyncState();
+            AudioFX.playReadyFanfare();
+            renderCurrentView();
+        }
+
+    /* SVG CLOCK RENDERER & HELPER FUNCTIONS */
+        function renderSVGClock(hours, minutes, size = 200) {
+            const h = hours % 12;
+            const m = minutes % 60;
+
+            // Calculate angles in degrees
+            const minuteAngle = m * 6; // 360 / 60 = 6 deg per minute
+            const hourAngle = (h * 30) + (m * 0.5); // 360 / 12 = 30 deg per hour + offset
+
+            let ticksHTML = '';
+            for (let i = 0; i < 60; i++) {
+                const angle = i * 6;
+                const isMajor = i % 5 === 0;
+                const length = isMajor ? 10 : 5;
+                const width = isMajor ? 2.5 : 1;
+                const color = isMajor ? '#f59e0b' : '#818cf8';
+                
+                ticksHTML += `
+                    <line x1="100" y1="${20 + (isMajor ? 0 : 5)}" x2="100" y2="${20 + length}" 
+                          stroke="${color}" stroke-width="${width}" 
+                          transform="rotate(${angle} 100 100)" stroke-linecap="round"/>
+                `;
+
+                if (isMajor) {
+                    const num = i === 0 ? 12 : i / 5;
+                    const rad = (angle - 90) * (Math.PI / 180);
+                    const tx = 100 + 62 * Math.cos(rad);
+                    const ty = 100 + 62 * Math.sin(rad) + 4; // slight vertical adjust
+                    ticksHTML += `
+                        <text x="${tx}" y="${ty}" text-anchor="middle" fill="#f3f4f6" font-size="12" font-weight="bold" font-family="Chakra Petch">${num}</text>
+                    `;
+                }
+            }
+
+            return `
+                <svg width="${size}" height="${size}" viewBox="0 0 200 200" class="clock-shadow">
+                    <circle cx="100" cy="100" r="90" fill="#1e1b4b" stroke="#8b5cf6" stroke-width="4"/>
+                    <circle cx="100" cy="100" r="84" fill="#0f172a"/>
+                    ${ticksHTML}
+                    
+                    <!-- Hour Hand (Shortened to y2=60 & thickened to stroke-width=8 for ultra clear distinction) -->
+                    <line x1="100" y1="100" x2="100" y2="60" 
+                          stroke="#fbbf24" stroke-width="8" stroke-linecap="round" 
+                          transform="rotate(${hourAngle} 100 100)"/>
+                    
+                    <!-- Minute Hand (Long & sleek, reaching near tick marks y2=32) -->
+                    <line x1="100" y1="100" x2="100" y2="32" 
+                          stroke="#38bdf8" stroke-width="4" stroke-linecap="round" 
+                          transform="rotate(${minuteAngle} 100 100)"/>
+                    
+                    <!-- Pivot -->
+                    <circle cx="100" cy="100" r="7" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
+                </svg>
+            `;
+        }
+
+        function saveAndSyncState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+            if (broadcastChannel) {
+                broadcastChannel.postMessage({ type: 'UPDATE_STATE', state: gameState });
+            }
+        }
+
+        // Expanded Question Pool & Randomizer Mechanism
+        function generatePrecisionQuestions() {
+            const MASTER_QUESTION_POOL = [
+                { h: 3, m: 15, answer: "3:15", options: ["3:15", "3:03", "3:20", "4:15"] },
+                { h: 7, m: 45, answer: "7:45", options: ["7:45", "8:45", "7:09", "7:40"] },
+                { h: 10, m: 22, answer: "10:22", options: ["10:22", "10:20", "10:04", "11:22"] },
+                { h: 1, m: 58, answer: "1:58", options: ["1:58", "2:58", "1:50", "1:11"] },
+                { h: 5, m: 37, answer: "5:37", options: ["5:37", "5:35", "7:27", "6:37"] },
+                { h: 8, m: 12, answer: "8:12", options: ["8:12", "8:02", "8:10", "9:12"] },
+                { h: 11, m: 03, answer: "11:03", options: ["11:03", "11:15", "12:03", "11:30"] },
+                { h: 4, m: 29, answer: "4:29", options: ["4:29", "4:25", "5:29", "4:30"] },
+                { h: 2, m: 41, answer: "2:41", options: ["2:41", "2:40", "3:41", "2:08"] },
+                { h: 9, m: 07, answer: "9:07", options: ["9:07", "9:35", "10:07", "9:05"] },
+                { h: 6, m: 53, answer: "6:53", options: ["6:53", "7:53", "6:50", "6:10"] },
+                { h: 12, m: 18, answer: "12:18", options: ["12:18", "12:20", "1:18", "12:03"] },
+                { h: 8, m: 44, answer: "8:44", options: ["8:44", "8:40", "9:44", "8:08"] },
+                { h: 1, m: 33, answer: "1:33", options: ["1:33", "1:35", "2:33", "1:06"] },
+                { h: 10, m: 49, answer: "10:49", options: ["10:49", "10:50", "11:49", "9:49"] },
+                { h: 3, m: 08, answer: "3:08", options: ["3:08", "3:40", "4:08", "3:05"] },
+                { h: 7, m: 26, answer: "7:26", options: ["7:26", "7:25", "8:26", "7:05"] },
+                { h: 5, m: 14, answer: "5:14", options: ["5:14", "5:10", "6:14", "5:02"] },
+                { h: 11, m: 51, answer: "11:51", options: ["11:51", "12:51", "11:50", "10:51"] },
+                { h: 2, m: 04, answer: "2:04", options: ["2:04", "2:20", "3:04", "2:05"] }
+            ];
+
+            // Shuffle pool using Fisher-Yates shuffle
+            const shuffled = [...MASTER_QUESTION_POOL];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+
+            // Shuffle option choices inside each selected question
+            const selectedQuestions = shuffled.slice(0, 4).map(q => {
+                const shuffledOpts = [...q.options];
+                for (let i = shuffledOpts.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffledOpts[i], shuffledOpts[j]] = [shuffledOpts[j], shuffledOpts[i]];
+                }
+                return { ...q, options: shuffledOpts };
+            });
+
+            return selectedQuestions;
+        }
+
+        function renderQuizView(container) {
+            const q = studentQuestions[currentQuestionIndex];
+            container.innerHTML = `
+                <div class="w-full max-w-2xl magic-card p-6 sm:p-8 rounded-3xl text-center flex flex-col items-center">
+                    <div class="flex justify-between w-full items-center mb-4">
+                        <span class="text-xs font-bold text-amber-300">第 ${currentGroup} 組 - ${currentMember} 號隊員</span>
+                        <span class="text-xs font-tech text-purple-300">題目 ${currentQuestionIndex + 1} / ${studentQuestions.length}</span>
+                    </div>
+
+                    <div class="my-4 flex justify-center">
+                        ${renderSVGClock(q.h, q.m, 220)}
+                    </div>
+
+                    <h3 class="text-xl font-black text-white mb-6">請指出時鐘顯示的時間：</h3>
+
+                    <div class="grid grid-cols-2 gap-4 w-full">
+                        ${q.options.map(opt => `
+                            <button onclick="checkAnswer('${opt}')" class="btn-magic py-4 rounded-2xl font-tech font-bold text-xl text-white hover:scale-105 border border-purple-400/40">
+                                ${opt}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkAnswer(selected) {
+            const q = studentQuestions[currentQuestionIndex];
+            if (selected === q.answer) {
+                AudioFX.playCorrect();
+                if (currentQuestionIndex < studentQuestions.length - 1) {
+                    currentQuestionIndex++;
+                    renderCurrentView();
+                } else {
+                    // Completed quiz for this member
+                    gameState.groups[currentGroup].members[currentMember].done = true;
+                    saveAndSyncState();
+                    AudioFX.playVictory();
+                    currentView = 'group_vault';
+                    renderCurrentView();
+                }
+            } else {
+                AudioFX.playWrong();
+                showModal("回答錯誤", "再仔細看看時針與分針的刻度位置喔！", "fa-solid fa-xmark", "text-rose-400");
+            }
+        }
+
+        function moveToNextInput(idx) {
+            const current = document.getElementById(`passInput_${idx}`);
+            if (current.value && idx < 5) {
+                const next = document.getElementById(`passInput_${idx + 1}`);
+                if (next) next.focus();
+            }
+        }
+
+        function unlockVault(g) {
+            let entered = "";
+            for (let i = 1; i <= 5; i++) {
+                entered += document.getElementById(`passInput_${i}`).value;
+            }
+
+            const expected = GROUP_PASSWORDS[g].join('');
+            if (entered === expected) {
+                gameState.groups[g].unlocked = true;
+                saveAndSyncState();
+                AudioFX.playVictory();
+                currentView = 'victory_cutscene';
+                renderCurrentView();
+            } else {
+                AudioFX.playWrong();
+                showModal("解密失敗！", "密碼不正確，請確認 1 至 5 號隊員的線索數字順序！", "fa-solid fa-lock", "text-rose-400");
+            }
+        }
+
+        function renderVictoryCutsceneView(container) {
+            const g = currentGroup || 1;
+            container.innerHTML = `
+                <div class="w-full max-w-3xl magic-card p-8 sm:p-12 rounded-3xl text-center flex flex-col items-center border-4 border-emerald-400/80 animate-victory-glow relative overflow-hidden my-auto shadow-[0_0_50px_rgba(16,185,129,0.3)]">
+                    <!-- Background ambient light -->
+                    <div class="absolute -top-24 -left-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -right-24 w-60 h-60 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="relative z-10 flex flex-col items-center">
+                        <div class="w-28 h-28 rounded-full bg-emerald-500/20 border-4 border-emerald-400 flex items-center justify-center text-6xl text-amber-300 mb-6 shadow-[0_0_30px_rgba(245,158,11,0.6)] animate-bounce">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+
+                        <span class="bg-amber-400/20 text-amber-300 border border-amber-400/50 text-sm font-black px-5 py-1.5 rounded-full uppercase tracking-widest mb-4">
+                            🎉 封印成功！時空大獲全勝
+                        </span>
+
+                        <h2 class="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-emerald-300 to-cyan-300 mb-4 leading-tight">
+                            恭喜第 ${g} 組，你們成功了！
+                        </h2>
+
+                        <p class="text-indigo-100 text-base sm:text-lg leading-relaxed mb-8 max-w-xl">
+                            太棒了！第 ${g} 小隊的全體守護者憑著敏銳的觀察力與團結合作，成功破解精細時間密碼，擊退了時間魔王！<br>
+                            <span class="text-amber-300 font-bold block mt-2">「你們都是最優秀的時間魔法師！」</span>
+                        </p>
+
+                        <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+                            <button onclick="currentView='group_vault'; renderCurrentView();" class="btn-magic py-3.5 px-8 rounded-2xl font-black text-white text-base w-full flex items-center justify-center gap-2 border border-emerald-300/40 shadow-xl">
+                                <i class="fa-solid fa-vault"></i> 返回組別金庫
+                            </button>
+                            <button onclick="showStoryIntro()" class="py-3.5 px-8 rounded-2xl font-bold bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 border border-indigo-400/40 text-base w-full transition">
+                                <i class="fa-solid fa-house"></i> 返回首頁
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                setTimeout(() => confetti({ particleCount: 80, angle: 60, spread: 55, origin: { x: 0 } }), 300);
+                setTimeout(() => confetti({ particleCount: 80, angle: 120, spread: 55, origin: { x: 1 } }), 600);
+            }
+        }
+
+        function replayVictoryCutscene() {
+            currentView = 'victory_cutscene';
+            renderCurrentView();
+        }
+
+        function simulateDemoProgress() {
+            for (let g = 1; g <= 5; g++) {
+                for (let m = 1; m <= 5; m++) {
+                    gameState.groups[g].members[m].loggedIn = true;
+                    if (Math.random() > 0.3) {
+                        gameState.groups[g].members[m].done = true;
+                    }
+                }
+                const allDone = Object.values(gameState.groups[g].members).every(m => m.done);
+                if (allDone && Math.random() > 0.4) {
+                    gameState.groups[g].unlocked = true;
+                }
+            }
+            saveAndSyncState();
+            renderCurrentView();
+        }
+
+        window.onload = function() {
+            renderCurrentView();
+        };
+    </script>
+</body>
+</html>
