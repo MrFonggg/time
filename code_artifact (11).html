@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>時間守護者：擊退時間魔王！</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700;800&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- MQTT for Cross-Device Real-Time Syncing -->
+    <script src="https://unpkg.com/mqtt@5.0.5/dist/mqtt.min.js"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .font-tech {
+            font-family: 'Chakra Petch', 'Noto Sans TC', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .pulse-glow {
+            animation: pulseGlow 2s infinite alternate;
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
+            100% { box-shadow: 0 0 35px rgba(234, 179, 8, 0.6); }
+        }
+        .clock-shadow {
+            filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.4));
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-2 md:p-4 bg-slate-950 overflow-x-hidden">
+
+    <!-- Top Navigation & Network Status Bar -->
+    <header class="w-full max-w-5xl mx-auto flex justify-between items-center glass-panel p-3 rounded-2xl mb-4 shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 font-bold text-xl">
+                ⏳
+            </div>
+            <div>
+                <h1 class="text-base md:text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-amber-100 font-tech">
+                    小二數學：時間守護者
+                </h1>
+                <div class="flex items-center gap-2 text-xs text-slate-400">
+                    <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span>
+                    <span id="statusText">正在初始化連線...</span>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="toggleTeacherAuthModal()" class="px-3 py-1.5 md:px-4 md:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs md:text-sm font-bold text-slate-300 transition-all flex items-center gap-1.5 shadow-md">
+            <span>🔒</span>
+            <span id="modeBtnText">教師實時大螢幕</span>
+        </button>
+    </header>
+
+    <!-- Main Dynamic Content Container -->
+    <main id="appContainer" class="w-full max-w-5xl mx-auto flex-1 flex flex-col justify-center items-center relative">
+        <!-- Content inserted dynamically by JS -->
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-5xl mx-auto text-center py-3 text-xs text-slate-500 font-medium">
+        小二數學科 2M2《時間》單元教學遊戲｜時間守護者團隊製作
+    </footer>
+
+    <!-- Teacher Auth Modal -->
+    <div id="teacherAuthModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden justify-center items-center z-50 p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl border border-slate-700 shadow-2xl relative text-center">
+            <div class="text-4xl mb-3">🔐</div>
+            <h2 class="text-xl font-bold text-amber-400 mb-2">進入教師控制台</h2>
+            <p class="text-slate-300 text-sm mb-4">請輸入教師權限密碼以切換至實時大螢幕：</p>
+            <form onsubmit="verifyTeacherPassword(event)" class="space-y-4">
+                <input type="password" id="teacherPassInput" placeholder="請輸入密碼" autofocus class="w-full px-4 py-3 bg-slate-900/90 border border-slate-700 rounded-xl text-center text-amber-400 font-mono text-xl focus:outline-none focus:border-amber-400 transition-all" />
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeTeacherAuthModal()" class="w-1/2 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all">取消</button>
+                    <button type="submit" class="w-1/2 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl shadow-lg transition-all">登入驗證</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Web Audio & Core Logic -->
+    <script>
+        // Web Audio Synthesizer
+        const AudioFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playTick() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            },
+            playCorrect() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.4);
+            },
+            playWrong() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(180, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.35);
+            },
+            playVictory() {
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + i * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.12 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + i * 0.12);
+                    osc.stop(this.ctx.currentTime + i * 0.12 + 0.3);
+                });
+            }
+        };
+
+        // Network & App Configuration
+        const STORAGE_KEY = 'TIME_GUARDIAN_P2_STATE_V3';
+        const ROOM_TOPIC = "HK_MATH_2M2_TIME_GUARDIAN_ROOM_2026_V1";
+        const TEACHER_PASSWORD = "991130";
+        const clientId = "client_" + Math.random().toString(36).substring(2, 10);
+        
+        let mqttClient = null;
+        let isTeacherHost = false;
+
+        // Group Password Hashes (5 groups x 5 member digits)
+        const GROUP_PASSWORDS = {
+            1: [3, 7, 2, 9, 5],
+            2: [8, 1, 4, 6, 0],
+            3: [5, 9, 3, 2, 8],
+            4: [2, 6, 7, 0, 4],
+            5: [9, 4, 1, 8, 3]
+        };
+
+        // Master Question Pool (Precise Clock Times)
+        const MASTER_QUESTION_POOL = [
+            { hour: 3, minute: 25, label: "3時25分" },
+            { hour: 7, minute: 12, label: "7時12分" },
+            { hour: 10, minute: 48, label: "10時48分" },
+            { hour: 1, minute: 37, label: "1時37分" },
+            { hour: 6, minute: 5, label: "6時05分" },
+            { hour: 9, minute: 53, label: "9時53分" },
+            { hour: 4, minute: 18, label: "4時18分" },
+            { hour: 11, minute: 42, label: "11時42分" },
+            { hour: 2, minute: 0, label: "2時00分" },
+            { hour: 8, minute: 22, label: "8時22分" },
+            { hour: 5, minute: 31, label: "5時31分" },
+            { hour: 12, minute: 14, label: "12時14分" },
+            { hour: 3, minute: 58, label: "3時58分" },
+            { hour: 10, minute: 03, label: "10時03分" },
+            { hour: 7, minute: 46, label: "7時46分" }
+        ];
+
+        // Default State Structure
+        function defaultState() {
+            const groups = {};
+            for (let g = 1; g <= 5; g++) {
+                groups[g] = { unlocked: false, members: {} };
+                for (let m = 1; m <= 5; m++) {
+                    groups[g].members[m] = { loggedIn: false, done: false };
+                }
+            }
+            return { gameStarted: false, locked: false, groups };
+        }
+
+        let gameState = defaultState();
+        let currentView = 'intro';
+        let currentGroup = 1;
+        let currentMember = 1;
+        let currentQuestionIndex = 0;
+        let studentQuestions = [];
+
+        // Network Setup (MQTT)
+        function initNetworkConnection(isTeacher = false) {
+            isTeacherHost = isTeacher;
+            updateConnectionBadge('connecting', isTeacher ? '正在建立教師主機...' : '尋找老師主機中...');
+            
+            try {
+                if (typeof mqtt === 'undefined') throw new Error("MQTT library not loaded");
+
+                if (!mqttClient) {
+                    mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+                    mqttClient.on('connect', () => {
+                        updateConnectionBadge('connected', isTeacher ? '教師主機運作中' : '連線成功，等待老師開啟遊戲...');
+                        mqttClient.subscribe(ROOM_TOPIC, (err) => {
+                            if (!err && !isTeacher) {
+                                publishData({ type: 'REQUEST_STATE' });
+                            } else if (!err && isTeacher) {
+                                publishData({ type: 'SYNC_STATE', state: gameState, isTeacher: true });
+                            }
+                        });
+                    });
+
+                    mqttClient.on('message', (topic, message) => {
+                        if (topic === ROOM_TOPIC) {
+                            try {
+                                const data = JSON.parse(message.toString());
+                                handleIncomingData(data);
+                            } catch (e) {}
+                        }
+                    });
+
+                    mqttClient.on('error', () => {
+                        updateConnectionBadge('offline', '離線/單機模式');
+                    });
+                } else if (isTeacher) {
+                    updateConnectionBadge('connected', '教師主機運作中');
+                    publishData({ type: 'SYNC_STATE', state: gameState, isTeacher: true });
+                }
+            } catch (e) {
+                updateConnectionBadge('offline', '單機模式');
+            }
+        }
+
+        function publishData(data) {
+            data.senderId = clientId;
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish(ROOM_TOPIC, JSON.stringify(data));
+            }
+        }
+
+        function handleIncomingData(data) {
+            if (!data) return;
+            let stateChanged = false;
+
+            if (data.type === 'SYNC_STATE') {
+                if (data.isTeacher) {
+                    gameState = data.state;
+                    stateChanged = true;
+                    if (!isTeacherHost) {
+                        updateConnectionBadge('connected', '已連線至老師主機');
+                    }
+                }
+            } else if (isTeacherHost) {
+                // Teacher acts as authoritative server
+                if (data.type === 'STUDENT_LOGIN') {
+                    gameState.groups[data.group].members[data.member].loggedIn = true;
+                    stateChanged = true;
+                } else if (data.type === 'STUDENT_LOGOUT') {
+                    gameState.groups[data.group].members[data.member].loggedIn = false;
+                    gameState.groups[data.group].members[data.member].done = false;
+                    stateChanged = true;
+                } else if (data.type === 'STUDENT_DONE') {
+                    gameState.groups[data.group].members[data.member].done = true;
+                    stateChanged = true;
+                } else if (data.type === 'VAULT_UNLOCKED') {
+                    gameState.groups[data.group].unlocked = true;
+                    stateChanged = true;
+                } else if (data.type === 'REQUEST_STATE') {
+                    publishData({ type: 'SYNC_STATE', state: gameState, isTeacher: true });
+                }
+
+                if (stateChanged) {
+                    publishData({ type: 'SYNC_STATE', state: gameState, isTeacher: true });
+                }
+            } else if (data.senderId === clientId) {
+                if (data.type === 'STUDENT_LOGIN') {
+                    gameState.groups[data.group].members[data.member].loggedIn = true;
+                    stateChanged = true;
+                } else if (data.type === 'STUDENT_LOGOUT') {
+                    gameState.groups[data.group].members[data.member].loggedIn = false;
+                    gameState.groups[data.group].members[data.member].done = false;
+                    stateChanged = true;
+                } else if (data.type === 'STUDENT_DONE') {
+                    gameState.groups[data.group].members[data.member].done = true;
+                    stateChanged = true;
+                } else if (data.type === 'VAULT_UNLOCKED') {
+                    gameState.groups[data.group].unlocked = true;
+                    stateChanged = true;
+                }
+            }
+
+            if (stateChanged) {
+                // 若非教師端，當遊戲被重置（gameStarted 為 false 且登入被清空）時，自動跳回選擇小隊畫面
+                if (!isTeacherHost && !gameState.gameStarted && currentView !== 'intro' && currentView !== 'select_squad') {
+                    if (gameState.groups[currentGroup] && !gameState.groups[currentGroup].members[currentMember]?.loggedIn) {
+                        currentView = 'select_squad';
+                    }
+                }
+                
+                if (currentView === 'waiting_hall' && gameState.gameStarted) {
+                    currentQuestionIndex = 0;
+                    studentQuestions = generatePrecisionQuestions();
+                    currentView = 'quiz';
+                }
+                renderCurrentView();
+            }
+        }
+
+        function updateConnectionBadge(status, message) {
+            const dot = document.getElementById('statusDot');
+            const txt = document.getElementById('statusText');
+            if (!dot || !txt) return;
+            txt.innerText = message;
+            if (status === 'connected') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] inline-block';
+            } else if (status === 'connecting') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse inline-block';
+            } else {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500 inline-block';
+            }
+        }
+
+        function toggleTeacherAuthModal() {
+            if (currentView === 'teacher') {
+                currentView = 'intro';
+                isTeacherHost = false;
+                document.getElementById('modeBtnText').innerText = "教師實時大螢幕";
+                initNetworkConnection(false);
+                renderCurrentView();
+            } else {
+                document.getElementById('teacherAuthModal').classList.remove('hidden');
+                document.getElementById('teacherAuthModal').classList.add('flex');
+                document.getElementById('teacherPassInput').focus();
+            }
+        }
+
+        function closeTeacherAuthModal() {
+            document.getElementById('teacherAuthModal').classList.add('hidden');
+            document.getElementById('teacherAuthModal').classList.remove('flex');
+            document.getElementById('teacherPassInput').value = '';
+        }
+
+        function verifyTeacherPassword(event) {
+            if (event) event.preventDefault();
+            const inputVal = document.getElementById('teacherPassInput').value;
+            if (inputVal === TEACHER_PASSWORD) {
+                closeTeacherAuthModal();
+                currentView = 'teacher';
+                document.getElementById('modeBtnText').innerText = "返回學生畫面";
+                initNetworkConnection(true);
+                renderCurrentView();
+            } else {
+                AudioFX.playWrong();
+                alert("密碼不正確！請重新輸入。");
+            }
+        }
+
+        // SVG Clock Generator (Shortened Hour Hand)
+        function renderSVGClock(hour, minute) {
+            const minuteAngle = minute * 6;
+            const hourAngle = ((hour % 12) + minute / 60) * 30;
+
+            let ticksHTML = '';
+            for (let i = 0; i < 60; i++) {
+                const angle = i * 6;
+                const isMajor = i % 5 === 0;
+                const tickLength = isMajor ? 10 : 5;
+                const strokeWidth = isMajor ? 2.5 : 1;
+                const color = isMajor ? '#f59e0b' : '#64748b';
+                ticksHTML += `<line x1="100" y1="${20 + tickLength}" x2="100" y2="20" transform="rotate(${angle} 100 100)" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" />`;
+            }
+
+            let numbersHTML = '';
+            const labels = [12,1,2,3,4,5,6,7,8,9,10,11];
+            labels.forEach((num, idx) => {
+                const angle = (idx * 30 - 90) * (Math.PI / 180);
+                const x = 100 + 64 * Math.cos(angle);
+                const y = 100 + 64 * Math.sin(angle);
+                numbersHTML += `<text x="${x}" y="${y + 5}" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="800" font-family="Chakra Petch">${num}</text>`;
+            });
+
+            return `
+                <svg viewBox="0 0 200 200" class="w-60 h-60 md:w-72 md:h-72 clock-shadow mx-auto">
+                    <circle cx="100" cy="100" r="92" fill="#1e293b" stroke="#334155" stroke-width="6"/>
+                    <circle cx="100" cy="100" r="84" fill="#0f172a" stroke="#f59e0b" stroke-width="2"/>
+                    ${ticksHTML}
+                    ${numbersHTML}
+                    <!-- Hour Hand (Shorter & Thicker) -->
+                    <line x1="100" y1="100" x2="100" y2="60" transform="rotate(${hourAngle} 100 100)" stroke="#f59e0b" stroke-width="8" stroke-linecap="round"/>
+                    <!-- Minute Hand (Longer & Thinner) -->
+                    <line x1="100" y1="100" x2="100" y2="32" transform="rotate(${minuteAngle} 100 100)" stroke="#38bdf8" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="100" cy="100" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
+                </svg>
+            `;
+        }
+
+        // Random Question Generator
+        function generatePrecisionQuestions() {
+            const shuffled = [...MASTER_QUESTION_POOL].sort(() => Math.random() - 0.5).slice(0, 3);
+            return shuffled.map(q => {
+                const choices = new Set([q.label]);
+                while (choices.size < 4) {
+                    const randomH = Math.floor(Math.random() * 12) + 1;
+                    const randomM = Math.floor(Math.random() * 60);
+                    const padM = randomM < 10 ? '0' + randomM : randomM;
+                    choices.add(`${randomH}時${padM}分`);
+                }
+                return {
+                    hour: q.hour,
+                    minute: q.minute,
+                    answer: q.label,
+                    options: Array.from(choices).sort(() => Math.random() - 0.5)
+                };
+            });
+        }
+
+        function teacherStartGame() {
+            gameState.gameStarted = true;
+            publishData({ type: 'SYNC_STATE', state: gameState, isTeacher: true });
+            AudioFX.playVictory();
+            renderCurrentView();
+        }
+
+        function teacherToggleLock() {
+            AudioFX.playTick();
+            gameState.locked = !gameState.locked;
+            publishData({ type: 'SYNC_STATE', state: gameState, isTeacher: true });
+            renderCurrentView();
+        }
+
+        function teacherResetGame() {
+            if (confirm("確定要重新開始遊戲嗎？這將會清除全班所有登入與答題紀錄，並讓學生重新選擇隊員登入。")) {
+                AudioFX.playTick();
+                gameState = defaultState();
+                publishData({ type: 'SYNC_STATE', state: gameState, isTeacher: true });
+                renderCurrentView();
+            }
+        }
+
+        function chooseGroup(g) {
+            AudioFX.playTick();
+            currentGroup = g;
+            currentView = 'select_member';
+            renderCurrentView();
+        }
+
+        function chooseMember(m) {
+            // 如果已被登入，防護不讓點擊
+            if (gameState.groups[currentGroup].members[m].loggedIn) {
+                AudioFX.playWrong();
+                alert("該隊員號碼已被其他 iPad 登入，請選擇其他號碼！");
+                return;
+            }
+            AudioFX.playTick();
+            currentMember = m;
+            gameState.groups[currentGroup].members[m].loggedIn = true;
+            publishData({ type: 'STUDENT_LOGIN', group: currentGroup, member: m });
+
+            if (gameState.gameStarted) {
+                currentQuestionIndex = 0;
+                studentQuestions = generatePrecisionQuestions();
+                currentView = 'quiz';
+            } else {
+                currentView = 'waiting_hall';
+            }
+            renderCurrentView();
+        }
+
+        function leaveMemberSelection() {
+            AudioFX.playTick();
+            // 如果已在登入狀態下按返回，釋放該號碼位置
+            if (gameState.groups[currentGroup]?.members[currentMember]?.loggedIn) {
+                gameState.groups[currentGroup].members[currentMember].loggedIn = false;
+                publishData({ type: 'STUDENT_LOGOUT', group: currentGroup, member: currentMember });
+            }
+            currentView = 'select_squad';
+            renderCurrentView();
+        }
+
+        function checkAnswer(selected) {
+            const q = studentQuestions[currentQuestionIndex];
+            if (selected === q.answer) {
+                AudioFX.playCorrect();
+                if (currentQuestionIndex < studentQuestions.length - 1) {
+                    currentQuestionIndex++;
+                    renderCurrentView();
+                } else {
+                    gameState.groups[currentGroup].members[currentMember].done = true;
+                    publishData({ type: 'STUDENT_DONE', group: currentGroup, member: currentMember });
+                    AudioFX.playVictory();
+                    currentView = 'group_vault';
+                    renderCurrentView();
+                }
+            } else {
+                AudioFX.playWrong();
+                alert("答案不正確，請再仔細觀察時針和分針！");
+            }
+        }
+
+        function unlockVault(g) {
+            let entered = "";
+            for (let i = 1; i <= 5; i++) {
+                entered += document.getElementById(`passInput_${i}`).value;
+            }
+
+            const expected = GROUP_PASSWORDS[g].join('');
+            if (entered === expected) {
+                gameState.groups[g].unlocked = true;
+                publishData({ type: 'VAULT_UNLOCKED', group: g });
+                AudioFX.playVictory();
+                currentView = 'victory_cutscene';
+                renderCurrentView();
+            } else {
+                AudioFX.playWrong();
+                alert("密碼不正確！請向同組同學確認密碼數字！");
+            }
+        }
+
+        // View Router
+        function renderCurrentView() {
+            const container = document.getElementById('appContainer');
+
+            // 學生端鎖定畫面覆蓋處理（非教師端且被鎖定時）
+            if (!isTeacherHost && gameState.locked) {
+                container.innerHTML = `
+                    <div class="text-center p-8 glass-panel rounded-3xl max-w-md w-full border border-red-500/50 shadow-2xl animate-pulse">
+                        <div class="text-6xl mb-4">🔒</div>
+                        <h2 class="text-2xl font-black text-red-400 mb-2">老師已鎖定畫面</h2>
+                        <p class="text-slate-300 text-sm">請放下手中的 iPad，專心聽老師講解！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (currentView === 'intro') {
+                container.innerHTML = `
+                    <div class="text-center max-w-xl p-8 glass-panel rounded-3xl border border-slate-700 shadow-2xl pulse-glow">
+                        <div class="text-6xl mb-4">🧙‍♂️</div>
+                        <h2 class="text-2xl md:text-3xl font-black text-amber-400 mb-4">時間魔王入侵了時間王國！</h2>
+                        <p class="text-slate-300 mb-6 leading-relaxed text-sm md:text-base">
+                            邪惡的時間魔王把時間王國的時鐘都搞亂了！<br>
+                            各位小二時間守護者，請與組員聯手回答時間難題，解開組合密碼封印，擊退時間魔王！
+                        </p>
+                        <button onclick="currentView='select_squad'; renderCurrentView();" class="px-8 py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-lg rounded-2xl shadow-xl transition-all transform hover:scale-105">
+                            進入小隊選擇
+                        </button>
+                    </div>
+                `;
+            } else if (currentView === 'select_squad') {
+                let cards = '';
+                for (let g = 1; g <= 5; g++) {
+                    cards += `
+                        <button onclick="chooseGroup(${g})" class="p-6 glass-panel rounded-2xl hover:border-amber-400 transition-all text-center group flex flex-col items-center">
+                            <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🛡️</div>
+                            <div class="text-amber-400 font-bold text-lg">第 ${g} 小隊</div>
+                        </button>
+                    `;
+                }
+                container.innerHTML = `
+                    <div class="w-full max-w-2xl text-center">
+                        <h2 class="text-2xl font-bold text-amber-400 mb-6">請選擇您所在的小隊</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">${cards}</div>
+                    </div>
+                `;
+            } else if (currentView === 'select_member') {
+                let memberBtns = '';
+                for (let m = 1; m <= 5; m++) {
+                    const isTaken = gameState.groups[currentGroup].members[m].loggedIn;
+                    if (isTaken) {
+                        memberBtns += `
+                            <button disabled class="p-4 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-500 border border-slate-800 cursor-not-allowed flex justify-between items-center opacity-60">
+                                <span>隊員 ${m} 號</span>
+                                <span class="text-xs bg-slate-700/50 text-slate-400 px-2.5 py-1 rounded-lg">已被選擇 🔒</span>
+                            </button>
+                        `;
+                    } else {
+                        memberBtns += `
+                            <button onclick="chooseMember(${m})" class="p-4 rounded-xl font-bold transition-all bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-amber-400 flex justify-between items-center shadow-md">
+                                <span>隊員 ${m} 號</span>
+                                <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-500/30">可選擇 🟢</span>
+                            </button>
+                        `;
+                    }
+                }
+                container.innerHTML = `
+                    <div class="w-full max-w-md text-center glass-panel p-6 rounded-3xl relative">
+                        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                            <button onclick="leaveMemberSelection()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-amber-400 font-bold border border-slate-700 transition-all flex items-center gap-1">
+                                <span>⬅</span>
+                                <span>返回小隊選擇</span>
+                            </button>
+                            <span class="text-xs text-slate-400 font-mono">第 ${currentGroup} 小隊</span>
+                        </div>
+                        <h2 class="text-xl font-bold text-amber-400 mb-2">請選擇你的隊員編號</h2>
+                        <p class="text-xs text-slate-400 mb-4">灰色表示已被同學的 iPad 選擇</p>
+                        <div class="grid grid-cols-1 gap-3 my-4">${memberBtns}</div>
+                    </div>
+                `;
+            } else if (currentView === 'waiting_hall') {
+                container.innerHTML = `
+                    <div class="text-center p-8 glass-panel rounded-3xl max-w-md w-full">
+                        <div class="text-5xl mb-4 animate-bounce">⏳</div>
+                        <h2 class="text-2xl font-bold text-amber-400 mb-2">已成功登入！</h2>
+                        <p class="text-slate-300 text-sm mb-6">請等待老師在電腦大螢幕按下「開啟遊戲」...</p>
+                        <div class="inline-block px-4 py-2 bg-slate-900/80 rounded-xl border border-slate-700 text-amber-300 text-xs font-mono mb-6">
+                            第 ${currentGroup} 小隊 - 隊員 ${currentMember} 號
+                        </div>
+                        <div>
+                            <button onclick="leaveMemberSelection()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-600 transition-all">
+                                🔄 按錯了？返回重新選擇
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (currentView === 'quiz') {
+                const q = studentQuestions[currentQuestionIndex];
+                let opts = '';
+                q.options.forEach(opt => {
+                    opts += `
+                        <button onclick="checkAnswer('${opt}')" class="p-4 bg-slate-800/90 hover:bg-slate-700/90 border border-slate-600 rounded-xl font-bold text-lg text-slate-100 transition-all shadow-md">
+                            ${opt}
+                        </button>
+                    `;
+                });
+                container.innerHTML = `
+                    <div class="w-full max-w-xl glass-panel p-6 rounded-3xl text-center">
+                        <div class="text-xs text-amber-400 font-bold mb-2">題目 ${currentQuestionIndex + 1} / ${studentQuestions.length}</div>
+                        <h3 class="text-lg font-bold text-slate-200 mb-4">請觀察鐘面，指出正確的時間：</h3>
+                        <div class="my-4">${renderSVGClock(q.hour, q.minute)}</div>
+                        <div class="grid grid-cols-2 gap-3 mt-6">${opts}</div>
+                    </div>
+                `;
+            } else if (currentView === 'group_vault') {
+                let inputs = '';
+                for (let i = 1; i <= 5; i++) {
+                    const digit = GROUP_PASSWORDS[currentGroup][i - 1];
+                    const isDone = gameState.groups[currentGroup].members[i].done;
+                    inputs += `
+                        <div class="text-center">
+                            <div class="text-xs text-slate-400 mb-1">${i}號隊員</div>
+                            <input id="passInput_${i}" type="text" maxlength="1" placeholder="?" value="${isDone ? digit : ''}" class="w-12 h-14 bg-slate-900 border border-slate-700 rounded-xl text-center text-xl font-black text-amber-400 focus:outline-none focus:border-amber-400">
+                        </div>
+                    `;
+                }
+                container.innerHTML = `
+                    <div class="w-full max-w-xl glass-panel p-6 rounded-3xl text-center">
+                        <div class="text-4xl mb-2">🔒</div>
+                        <h2 class="text-xl font-bold text-amber-400 mb-2">第 ${currentGroup} 小隊金庫封印</h2>
+                        <p class="text-slate-300 text-xs mb-6">請全組同學集合，組合大家獲得的密碼數字解開金庫！</p>
+                        <div class="flex justify-center gap-2 mb-6">${inputs}</div>
+                        <button onclick="unlockVault(${currentGroup})" class="px-8 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl shadow-lg transition-all">
+                            解開金庫封印
+                        </button>
+                    </div>
+                `;
+            } else if (currentView === 'victory_cutscene') {
+                confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                container.innerHTML = `
+                    <div class="text-center p-8 glass-panel rounded-3xl max-w-lg w-full pulse-glow">
+                        <div class="text-6xl mb-4">👑</div>
+                        <h2 class="text-2xl md:text-3xl font-black text-amber-400 mb-4">恭喜第 ${currentGroup} 組，你們成功了！</h2>
+                        <p class="text-slate-200 text-base mb-6 leading-relaxed">
+                            你們憑藉出色的時間辨識能力與團隊合作，成功解開了金庫封印，擊退了時間魔王！<br>王國重新恢復了秩序！
+                        </p>
+                        <button onclick="currentView='intro'; renderCurrentView();" class="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl border border-slate-600 transition-all">
+                            返回主頁
+                        </button>
+                    </div>
+                `;
+            } else if (currentView === 'teacher') {
+                let groupRows = '';
+                for (let g = 1; g <= 5; g++) {
+                    let memberBadges = '';
+                    for (let m = 1; m <= 5; m++) {
+                        const mData = gameState.groups[g].members[m];
+                        let statusColor = 'bg-slate-800 text-slate-500 border-slate-700';
+                        if (mData.done) statusColor = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
+                        else if (mData.loggedIn) statusColor = 'bg-amber-500/20 text-amber-400 border-amber-500/50';
+                        
+                        memberBadges += `
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold border ${statusColor}">
+                                ${m}號 ${mData.done ? '✓' : mData.loggedIn ? '準備' : '-'}
+                            </span>
+                        `;
+                    }
+                    groupRows += `
+                        <div class="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-3">
+                            <div class="flex items-center gap-3">
+                                <span class="text-amber-400 font-black text-lg">第 ${g} 組</span>
+                                <span class="px-3 py-1 rounded-full text-xs font-bold ${gameState.groups[g].unlocked ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-800 text-slate-400'}">
+                                    ${gameState.groups[g].unlocked ? '已解鎖金庫 🔓' : '未解鎖 🔒'}
+                                </span>
+                            </div>
+                            <div class="flex gap-2 flex-wrap">${memberBadges}</div>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = `
+                    <div class="w-full max-w-4xl glass-panel p-6 rounded-3xl">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-800">
+                            <div>
+                                <h2 class="text-2xl font-black text-amber-400">教師實時控制台</h2>
+                                <p class="text-xs text-slate-400">實時監控全班 5 小隊答題進度</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="teacherToggleLock()" class="px-4 py-2.5 ${gameState.locked ? 'bg-red-500 hover:bg-red-400 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600'} font-bold text-xs md:text-sm rounded-xl transition-all shadow-md flex items-center gap-1.5">
+                                    <span>${gameState.locked ? '🔓 解鎖學生作答' : '🔒 鎖定學生作答'}</span>
+                                </button>
+                                <button onclick="teacherResetGame()" class="px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/40 text-rose-300 font-bold text-xs md:text-sm rounded-xl transition-all flex items-center gap-1.5">
+                                    <span>🔄 重新開始</span>
+                                </button>
+                                <button onclick="teacherStartGame()" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-xs md:text-sm rounded-xl shadow-lg transition-all">
+                                    🚀 開啟全班遊戲
+                                </button>
+                            </div>
+                        </div>
+                        <div class="space-y-3 mb-6">${groupRows}</div>
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = function() {
+            try {
+                initNetworkConnection(false);
+            } catch(e) {
+                updateConnectionBadge('offline', '單機模式');
+            }
+            renderCurrentView();
+        };
+    </script>
+</body>
+</html>
